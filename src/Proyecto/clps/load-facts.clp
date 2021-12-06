@@ -2,6 +2,7 @@
  	(product (name iphone 7) (category smartphones) (product-id 1234))
  	(product (name iphone 13) (category smartphones) (product-id 1235))
  	(product (name macbook air) (category computers) (product-id 1236))
+ 	(product (name samsung note 12) (category computers) (product-id 1237))
 )
 
 (deffacts sellers
@@ -24,17 +25,24 @@
 	(product-seller (product-id 1235) (seller-id alibaba) (price 1450))
 	(product-seller (product-id 1236) (seller-id amazon2) (price 2000))
 	(product-seller (product-id 1236) (seller-id alibaba) (price 2010))
+	(product-seller (product-id 1237) (seller-id amazon1) (price 1010))
+	(product-seller (product-id 1237) (seller-id alibaba) (price 1020))
 )
 
 ; (deffacts orders 
-; 	(order (seller-id alibaba) (order-id 1)) 
-; 	(order (seller-id amazon1) (order-id 2)) 
-; 	(order (seller-id amazon2) (order-id 3)) 
+; 	(order (seller-id alibaba) (order-id 1) (card contado)) 
+; 	(order (seller-id alibaba) (order-id 2) (card contado)) 
+; 	; (order (seller-id alibaba) (order-id 2) (card contado)) 
+; 	; (order (seller-id alibaba) (order-id 1) (card contado)) 
+; 	; (order (seller-id amazon1) (order-id 2)) 
+; 	; (order (seller-id amazon2) (order-id 3)) 
 ; )
 
 ; (deffacts items-list
-;   (order-description (order-id 1) (product iphone 7))
-;   (order-description (order-id 1) (product macbook air))
-;   (order-description (order-id 2) (product iphone 13))
-;   (order-description (order-id 3) (product macbook air))
+;   (order-description (order-id 1) (product iphone 13))
+;   (order-description (order-id 2) (product macbook air))
+; ;   (order-description (order-id 1) (product iphone 13))
+; ;   (order-description (order-id 1) (product macbook air))
+; ;   (order-description (order-id 2) (product iphone 13))
+; ;   (order-description (order-id 3) (product macbook air))
 ; )

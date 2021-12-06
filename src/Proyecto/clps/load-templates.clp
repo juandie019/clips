@@ -8,16 +8,6 @@
   (slot category)
 )
 
-(deftemplate order
-  (slot order-id)
-  (slot seller-id) 
-)
-
-(deftemplate order-description
-  (slot order-id)
-  (multislot product)
-)
-
 (deftemplate product-seller
   (slot seller-id)
   (slot product-id)
@@ -25,8 +15,35 @@
   (slot quantity (default 0))
 )
 
+(deftemplate order
+  (slot order-id)
+  (slot seller-id)
+  (slot card)
+)
+
+(deftemplate order-description
+  (slot order-id)
+  (multislot product)
+)
+
+(deftemplate purchase-description
+  (slot order-id)
+  (multislot product)
+)
+
+(deftemplate order-description
+  (slot order-id)
+  (multislot product)
+)
+
 (deftemplate offer
   (slot order-id)
-  (slot price)
+  (slot product-id)
   (multislot product)
+  (slot price)
+)
+
+(deftemplate offer-msg
+  (slot order-id)
+  (multislot message)
 )

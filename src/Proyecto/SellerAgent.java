@@ -44,7 +44,9 @@ public class SellerAgent extends Agent {
 		addBehaviour(new ContractNetResponder(this, template) {
 			@Override
 			protected ACLMessage handleCfp(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
-				String products = cfp.getContent();
+				String [] content = cfp.getContent().split(":");
+				String card = content[0];
+				String products = content[1];
 				String[] productsList = products.replace("[", "").replace("]", "").split(",");
 				
 				for(int i = 0; i<productsList.length; i++){
@@ -57,7 +59,7 @@ public class SellerAgent extends Agent {
 				if (true) {
 					try {
 						String assertProduct = null;
-						String assertOrder = "(order (seller-id " + getLocalName() + ") (order-id " + cfp.getSender().getLocalName() + "))";
+						String assertOrder = "(order (seller-id " + getLocalName() + ") (order-id " + cfp.getSender().getLocalName() + ") (card " + card + "))";
 						clips.assertString(assertOrder);
 							
 						for(int i = 0; i<productsList.length; i++){
@@ -77,27 +79,21 @@ public class SellerAgent extends Agent {
 							}
 						}
 
-						System.out.print("debugg" + agentOffers.toString());
-
 						if(agentOffers.size() > 0){
 							for(FactAddressValue o: agentOffers) {
+								System.out.println("Ofrece" + o.getSlotValue("product") + ":" + o.getSlotValue("price") + ",");
 								message += o.getSlotValue("product") + ":" + o.getSlotValue("price") + ",";
 							}
-							
-
 						}else{
 							throw new RefuseException("evaluation-failed");
 						}
 
-
-						
-						// clips.eval("(facts)");
 					} catch (Exception e) {
 						System.out.println(e);
 					}
 
 					// We provide a proposal
-					System.out.println("Agent "+getLocalName()+": Proposing "+proposal);
+					System.out.println("Agent "+getLocalName()+": Proposing "+ proposal);
 					ACLMessage propose = cfp.createReply();
 					propose.setPerformative(ACLMessage.PROPOSE);
 					propose.setContent(message);
@@ -112,17 +108,43 @@ public class SellerAgent extends Agent {
 
 			@Override
 			protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose,ACLMessage accept) throws FailureException {
-				System.out.println("Agent "+getLocalName()+": Proposal accepted");
-				if (performAction()) {
-					System.out.println("Agent "+getLocalName()+": Action successfully performed");
+				String [] products = accept.getContent().split(",");
+				String message = "Productos vendidos \n";
+				String assertProduct = "";
+				try {
+					for(String product: products){
+						assertProduct = "(purchase-description (order-id " + cfp.getSender().getLocalName() + ") (product " + product + "))";
+						clips.assertString(assertProduct);
+					}
+					clips.run();
+
+
+					List<FactAddressValue> offersMsg = clips.findAllFacts("offer-msg");
+					
+					for(FactAddressValue o: offersMsg) {
+						if(cfp.getSender().getLocalName().equals(o.getSlotValue("order-id").toString())){
+							message += o.getSlotValue("message").toString().replace("(", "").replace(")", "") + "\n";
+						}
+					}
+
+				} catch (Exception e) {
+					System.out.println(e);
+				}
+
+				// System.out.println("Agent "+getLocalName()+": Proposal accepted");
+				System.out.println("Agent "+ getLocalName() + " Selling " + accept.getContent());
+
+				// if (performAction()) {
+				// 	// System.out.println("Agent "+getLocalName()+": Action successfully performed");
 					ACLMessage inform = accept.createReply();
 					inform.setPerformative(ACLMessage.INFORM);
+					inform.setContent(message);
 					return inform;
-				}
-				else {
-					System.out.println("Agent "+getLocalName()+": Action execution failed");
-					throw new FailureException("unexpected-error");
-				}	
+				// }
+				// else {
+				// 	System.out.println("Agent "+getLocalName()+": Action execution failed");
+				// 	throw new FailureException("unexpected-error");
+				// }	
 			}
 
 			protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
@@ -182,7 +204,7 @@ public class SellerAgent extends Agent {
                 // System.out.println(clips.eval("(facts)"));
                 // clips.eval("(facts)");
                 // clips.eval("(rules)");
-                // clips.run();
+                clips.run();
             } catch (Exception e) {
                 System.out.println(e);
             }

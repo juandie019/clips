@@ -30,10 +30,12 @@ import jade.lang.acl.ACLMessage;
 import jade.proto.ContractNetInitiator;
 import jade.domain.FIPANames;
 
-import java.util.Date;
-import java.util.Vector;
-import java.util.Enumeration;
-import java.util.Arrays;
+import java.util.*;
+
+// import java.util.Date;
+// import java.util.Vector;
+// import java.util.Enumeration;
+// import java.util.Arrays;
 
 /**
    This example shows how to implement the initiator role in 
@@ -47,36 +49,62 @@ import java.util.Arrays;
 public class CustomerAgent extends Agent {
 	private int nProductos;
 	private int nResponders = 1;
+	// private String [] sellers = {"amazon1"};
+	private String [] sellers = {"amazon1", "amazon2", "alibaba"};
 
 	protected void setup() { 
-  	// Read names of responders as arguments
-  	Object[] products = getArguments();
-	String productsString = Arrays.toString(products);
+	Object[] args = getArguments();
+	Object payment = ""; 
+	Object[] products = getArguments() != null ? new Object[getArguments().length - 1] : null;
+	String order = "";
 
-	System.out.println(productsString);
-	
+	if(args != null && args.length > 1){
+		payment = args[args.length - 1]; //we get the payment method
+
+		for(int i = 0; i < products.length; i++){
+			products[i] = args[i];
+		}
+
+		order = payment.toString() + ":" + Arrays.toString(products);
+		System.out.println(order);
+	}
+		
   	if (products != null && products.length > 0) {
   		nProductos = products.length;
-		// String product1 = products[0];
-		// String product2 = products[1] ? products[1] : null;
   		System.out.println("Trying buy "+ nProductos +" products.");
   		
   		// Fill the CFP message
   		ACLMessage msg = new ACLMessage(ACLMessage.CFP);
-  		// for (int i = 0; i < products.length; ++i) {
-  		msg.addReceiver(new AID("amazon1", AID.ISLOCALNAME));
-  		// msg.addReceiver(new AID("amazon2", AID.ISLOCALNAME));
-  		// msg.addReceiver(new AID("alibaba", AID.ISLOCALNAME));
-  		// }
+		  
+  		for (String seller :sellers) {
+	  		msg.addReceiver(new AID(seller, AID.ISLOCALNAME));
+  		}
 		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
-			// We want to receive a reply in 10 secs
+		// We want to receive a reply in 10 secs
 		msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
-		msg.setContent(Arrays.toString(products));
+		msg.setContent(order);
 			
 			addBehaviour(new ContractNetInitiator(this, msg) {
 				
 				protected void handlePropose(ACLMessage propose, Vector v) {
+					String msg = propose.getContent();
+					String[] productsList = msg.split(",");
+
 					System.out.println("Aaaagent "+propose.getSender().getName()+" proposed "+propose.getContent());
+					
+					
+					List<Offer> offers = new LinkedList<Offer>();
+					String[] productAux = null;
+					
+					for(String pl: productsList){
+						productAux = pl.replace("(", "").replace(")", "").split(":");
+						offers.add(new Offer(productAux[0], Float.parseFloat(productAux[1]), propose));
+					}
+
+					for(Offer o: offers){
+						System.out.println("offer " + o.toString());
+					}
+
 				}
 				
 				protected void handleRefuse(ACLMessage refuse) {
@@ -96,45 +124,136 @@ public class CustomerAgent extends Agent {
 					nResponders--;
 				}
 				
-				// protected void handleAllResponses(Vector responses, Vector acceptances) {
-				// 	if (responses.size() < nResponders) {
-				// 		// Some responder didn't reply within the specified timeout
-				// 		System.out.println("Timeout expired: missing "+(nResponders - responses.size())+" responses");
-				// 	}
-				// 	// Evaluate proposals.
-				// 	int bestProposal = -1;
-				// 	AID bestProposer = null;
-				// 	ACLMessage accept = null;
-				// 	Enumeration e = responses.elements();
-				// 	while (e.hasMoreElements()) {
-				// 		ACLMessage msg = (ACLMessage) e.nextElement();
-				// 		if (msg.getPerformative() == ACLMessage.PROPOSE) {
-				// 			ACLMessage reply = msg.createReply();
-				// 			reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
-				// 			acceptances.addElement(reply);
-				// 			int proposal = Integer.parseInt(msg.getContent());
-				// 			if (proposal > bestProposal) {
-				// 				bestProposal = proposal;
-				// 				bestProposer = msg.getSender();
-				// 				accept = reply;
-				// 			}
-				// 		}
-				// 	}
-				// 	// Accept the proposal of the best proposer
-				// 	if (accept != null) {
-				// 		System.out.println("Accepting proposal "+bestProposal+" from responder "+bestProposer.getName());
-				// 		accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-				// 	}						
-				// }
+				protected void handleAllResponses(Vector responses, Vector acceptances) {
+					List<Offer>offers = new LinkedList<Offer>();
+					List<Offer>bestOffers = new LinkedList<Offer>();
+
+					if (responses.size() < nResponders) {
+						// Some responder didn't reply within the specified timeout
+						System.out.println("Timeout expired: missing "+(nResponders - responses.size())+" responses");
+					}
+
+					Enumeration e = responses.elements();
+
+					while(e.hasMoreElements()) {
+						ACLMessage msg = (ACLMessage) e.nextElement();
+						if (msg.getPerformative() == ACLMessage.PROPOSE)
+							for (Offer o :getReponderOffers(msg)){
+								offers.add(o);
+							}
+					}
+
+					for(Object productName: products){
+						Offer bestOffer = getBestbestOffer(offers, productName);
+						if(bestOffer != null)
+							bestOffers.add(bestOffer);
+					}
+					
+
+					for(String seller :sellers){
+						List<Offer> acceptedOffersSeller = getSellerOffers(bestOffers, seller);
+						if(acceptedOffersSeller.size() > 0){
+							String content = "";
+							ACLMessage msg = acceptedOffersSeller.get(0).getMsg();
+
+							for(Offer offer :acceptedOffersSeller){
+								content += offer.getName() + ',';
+							}
+
+							ACLMessage reply = msg.createReply();
+							acceptances.addElement(reply);
+							System.out.println("Comprando " + content);
+							reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
+							reply.setContent(content);
+						}
+					}
+				}
 				
 				protected void handleInform(ACLMessage inform) {
-					System.out.println("Agent "+inform.getSender().getName()+" successfully performed the requested action");
+					System.out.println("Agent "+inform.getSender().getName()+ "dice: " + inform.getContent());
 				}
 			} );
   	}
   	else {
   		System.out.println("No products specified.");
   	}
-  } 
+  	} 
+
+	protected List<Offer> getReponderOffers(ACLMessage msg){
+		List<Offer> offers = new LinkedList<Offer>();
+		String message = msg.getContent();
+		String[] productsList = message.split(",");
+		String[] product = null;
+		
+		for(String pl: productsList){
+			product = pl.replace("(", "").replace(")", "").split(":");
+			offers.add(new Offer(product[0], Float.parseFloat(product[1]), msg));
+		}
+
+		return offers;
+	}
+
+	protected List<Offer> getSellerOffers(List<Offer> offers, String sellerName){
+		List<Offer> sellerOffers = new LinkedList<Offer>();
+		
+		for(Offer sellerOf: offers){
+			if(sellerOf.getSellerName().equals(sellerName))
+			sellerOffers.add(sellerOf);
+		}
+
+		return sellerOffers;
+	}
+
+	protected Offer getBestbestOffer(List<Offer>offers, Object producName){
+		Offer bestOffer = null;
+
+		for(Offer o: offers){
+			if(o.getName().equals(producName)){
+				if(bestOffer == null)
+					bestOffer = o;
+				else{
+					if(o.getPrice() < bestOffer.getPrice())  
+						bestOffer = o;
+				}
+			}
+		}
+
+		return bestOffer;
+	}
+
+	public class Offer {
+		String name;
+		float price;
+		ACLMessage msg;
+
+		public Offer(String name, float price, ACLMessage msg){
+			this.name = name;
+			this.price = price;
+			this.msg = msg;
+		}
+
+		public String getName(){
+			return name;
+		}
+
+		public float getPrice(){
+			return price;
+		}
+
+		public ACLMessage getMsg(){
+			return msg;
+		}
+
+		public String getSellerName(){
+			return msg.getSender().getLocalName();
+		}
+
+		public String toString(){
+			return "Comprando " + this.name + " a " + msg.getSender().getLocalName() + "por " + String.valueOf(price);
+		}
+		
+	}
 }
+
+
 
