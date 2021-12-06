@@ -2,6 +2,7 @@
  	(product (name iphone 7) (category smartphones) (product-id 1234))
  	(product (name iphone 13) (category smartphones) (product-id 1235))
  	(product (name macbook air) (category computers) (product-id 1236))
+ 	(product (name macbook pro) (category computers) (product-id 1238))
  	(product (name samsung note 12) (category computers) (product-id 1237))
 )
 
@@ -24,7 +25,9 @@
 	(product-seller (product-id 1235) (seller-id amazon1) (price 1500))
 	(product-seller (product-id 1235) (seller-id alibaba) (price 1450))
 	(product-seller (product-id 1236) (seller-id amazon2) (price 2000))
-	(product-seller (product-id 1236) (seller-id alibaba) (price 2010))
+	(product-seller (product-id 1236) (seller-id alibaba) (price 1900))
+	(product-seller (product-id 1238) (seller-id amazon2) (price 2500))
+	(product-seller (product-id 1238) (seller-id alibaba) (price 2700))
 	(product-seller (product-id 1237) (seller-id amazon1) (price 1010))
 	(product-seller (product-id 1237) (seller-id alibaba) (price 1020))
 )

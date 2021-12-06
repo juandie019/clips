@@ -48,77 +48,60 @@ import java.util.*;
  */
 public class CustomerAgent extends Agent {
 	private int nProductos;
-	private int nResponders = 1;
 	// private String [] sellers = {"amazon1"};
+	// private String [] sellers = {"amazon1", "alibaba"};
 	private String [] sellers = {"amazon1", "amazon2", "alibaba"};
+	private int nResponders = sellers.length;
 
 	protected void setup() { 
-	Object[] args = getArguments();
-	Object payment = ""; 
-	Object[] products = getArguments() != null ? new Object[getArguments().length - 1] : null;
-	String order = "";
+		Object[] args = getArguments();
+		Object[] products = getArguments() != null ? new Object[getArguments().length - 1] : null;
+		Object payment = ""; 
+		String order = "";
 
-	if(args != null && args.length > 1){
-		payment = args[args.length - 1]; //we get the payment method
+		if(args != null && args.length > 1){
+			payment = args[args.length - 1]; //we get the payment method
 
-		for(int i = 0; i < products.length; i++){
-			products[i] = args[i];
+			for(int i = 0; i < products.length; i++){
+				products[i] = args[i];
+			}
+
+			order = payment.toString() + ":" + Arrays.toString(products); //we get ready the order
 		}
-
-		order = payment.toString() + ":" + Arrays.toString(products);
-		System.out.println(order);
-	}
-		
-  	if (products != null && products.length > 0) {
-  		nProductos = products.length;
-  		System.out.println("Trying buy "+ nProductos +" products.");
-  		
-  		// Fill the CFP message
-  		ACLMessage msg = new ACLMessage(ACLMessage.CFP);
-		  
-  		for (String seller :sellers) {
-	  		msg.addReceiver(new AID(seller, AID.ISLOCALNAME));
-  		}
-		msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
-		// We want to receive a reply in 10 secs
-		msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
-		msg.setContent(order);
 			
+		if (products != null && products.length > 0) {
+			System.out.println(getLocalName() + " trying get "+ products.length +" products.");
+			
+			// Fill the CFP message
+			ACLMessage msg = new ACLMessage(ACLMessage.CFP);
+			
+			for (String seller :sellers) { //adding the recivers
+				msg.addReceiver(new AID(seller, AID.ISLOCALNAME));
+			}
+
+			msg.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+			// We want to receive a reply in 15 secs
+			msg.setReplyByDate(new Date(System.currentTimeMillis() + 15000));
+			msg.setContent(order);
+				
 			addBehaviour(new ContractNetInitiator(this, msg) {
 				
 				protected void handlePropose(ACLMessage propose, Vector v) {
-					String msg = propose.getContent();
-					String[] productsList = msg.split(",");
-
-					System.out.println("Aaaagent "+propose.getSender().getName()+" proposed "+propose.getContent());
-					
-					
-					List<Offer> offers = new LinkedList<Offer>();
-					String[] productAux = null;
-					
-					for(String pl: productsList){
-						productAux = pl.replace("(", "").replace(")", "").split(":");
-						offers.add(new Offer(productAux[0], Float.parseFloat(productAux[1]), propose));
-					}
-
-					for(Offer o: offers){
-						System.out.println("offer " + o.toString());
-					}
-
+					System.out.println("Seller " + propose.getSender().getLocalName() + " has some of the productos ");
 				}
 				
 				protected void handleRefuse(ACLMessage refuse) {
-					System.out.println("Agent "+refuse.getSender().getName()+" refused");
+					System.out.println("Seller " + refuse.getSender().getLocalName() + " does not have the products");
 				}
 				
 				protected void handleFailure(ACLMessage failure) {
 					if (failure.getSender().equals(myAgent.getAMS())) {
 						// FAILURE notification from the JADE runtime: the receiver
 						// does not exist
-						System.out.println("Responder does not exist");
+						System.out.println("Seller does not exist");
 					}
 					else {
-						System.out.println("Agent "+failure.getSender().getName()+" failed");
+						System.out.println("Seller "+failure.getSender().getLocalName()+" says product run out of stock");
 					}
 					// Immediate failure --> we will not receive a response from this agent
 					nResponders--;
@@ -127,56 +110,64 @@ public class CustomerAgent extends Agent {
 				protected void handleAllResponses(Vector responses, Vector acceptances) {
 					List<Offer>offers = new LinkedList<Offer>();
 					List<Offer>bestOffers = new LinkedList<Offer>();
-
+					
 					if (responses.size() < nResponders) {
 						// Some responder didn't reply within the specified timeout
 						System.out.println("Timeout expired: missing "+(nResponders - responses.size())+" responses");
 					}
 
 					Enumeration e = responses.elements();
-
 					while(e.hasMoreElements()) {
 						ACLMessage msg = (ACLMessage) e.nextElement();
 						if (msg.getPerformative() == ACLMessage.PROPOSE)
-							for (Offer o :getReponderOffers(msg)){
+							for (Offer o :getReponderOffers(msg)){ //we get the offer for each product sold by a seller
 								offers.add(o);
 							}
 					}
 
-					for(Object productName: products){
+					for(Object productName: products){ // we get the list fo the best offer for each product
 						Offer bestOffer = getBestbestOffer(offers, productName);
 						if(bestOffer != null)
 							bestOffers.add(bestOffer);
 					}
 					
-
-					for(String seller :sellers){
+					for(String seller :sellers){ //get the seller offer to send them an accept proposal
 						List<Offer> acceptedOffersSeller = getSellerOffers(bestOffers, seller);
-						if(acceptedOffersSeller.size() > 0){
+						if(acceptedOffersSeller.size() > 0){//sending accept proposal
 							String content = "";
 							ACLMessage msg = acceptedOffersSeller.get(0).getMsg();
 
-							for(Offer offer :acceptedOffersSeller){
+							System.out.println("Accepting propose to " + msg.getSender().getLocalName() + " of the next products: ");
+
+							for(Offer offer :acceptedOffersSeller){ //building the msg
 								content += offer.getName() + ',';
+								System.out.println(offer.toString());
 							}
 
 							ACLMessage reply = msg.createReply();
 							acceptances.addElement(reply);
-							System.out.println("Comprando " + content);
 							reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
 							reply.setContent(content);
+						}else{ //sending a reject proposal
+							List<Offer> offersRejected = getSellerOffers(offers, seller);
+							
+							if(offersRejected.size() > 0){ //it makes a proposal so we have to reject
+								ACLMessage reply = offersRejected.get(0).getMsg().createReply();
+								reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
+								acceptances.addElement(reply);
+							}
 						}
 					}
 				}
 				
 				protected void handleInform(ACLMessage inform) {
-					System.out.println("Agent "+inform.getSender().getName()+ "dice: " + inform.getContent());
+					System.out.println("Agent "+inform.getSender().getLocalName()+ " dice: " + inform.getContent());
 				}
 			} );
-  	}
-  	else {
-  		System.out.println("No products specified.");
-  	}
+		}
+		else {
+			System.out.println("No products o payment method specified.");
+		}
   	} 
 
 	protected List<Offer> getReponderOffers(ACLMessage msg){
@@ -217,7 +208,6 @@ public class CustomerAgent extends Agent {
 				}
 			}
 		}
-
 		return bestOffer;
 	}
 
@@ -249,7 +239,7 @@ public class CustomerAgent extends Agent {
 		}
 
 		public String toString(){
-			return "Comprando " + this.name + " a " + msg.getSender().getLocalName() + "por " + String.valueOf(price);
+			return this.name + " en " + String.valueOf(price) + " dollars";
 		}
 		
 	}

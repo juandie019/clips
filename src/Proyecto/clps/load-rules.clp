@@ -78,32 +78,14 @@
    => 
    (assert (offer-msg (order-id ?orderId) (message Por tu compra puedes obtener una funda y mica con 15% de descuento))))
 
-; (defrule all-lamps-are-on 
-;   (lamp (state on)) 
-;   (test (>= (length$ (find-all-facts ((?l lamp)) (eq ?l:state on))) 3)) 
-;   => 
-;   (printout t "All lamps are on" crlf)) 
+(defrule macpro-iphone 
+   (order (order-id ?orderId) (card contado))
+   (purchase-description (order-id ?orderId) (product $? iphone 13 $?))  
+   (purchase-description (order-id ?orderId) (product $? macbook pro $?))  
+   => 
+   (assert (offer-msg (order-id ?orderId) (Esta compra te ofrece el siguiente cupon 148832 con un 10% de descuento))))
 
-; (assert (call-customer ?name ?phone "tienes 25% desc prox compra"))
 
-; (defrule can-sell
-;    (seller (seller-id ?id))
-;    (order (seller-id ?id) (order-id ?orderId))
-;    (order-description (order-id ?orderId) (product $?product))
-;    (product (name $?product) (product-id ?productId))
-;    (product-seller (seller-id ?id) (product-id ?productId) (price ?price))
-;    =>
-;    (printout t ?id " Can sell " ?product " at " ?price crlf))
-
-; ;;Define a rule for finding those customers who bought more than 5 products
-
-; (defrule cust-5-prods
-;    (customer (customer-id ?id) (name ?cn))
-;    (order (order-number ?order) (customer-id ?id))
-;    (line-item (order-number ?order) (part-number ?part) (quantity ?q>5))
-;    (product (part-number ?part) (name ?pn))
-;    =>
-;    (printout t ?cn " bought more than 5 products (" ?pn ")" crlf))
 
 ; ;; Define a rule for texting custormers who have not bought ...
 

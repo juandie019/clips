@@ -33,9 +33,9 @@ public class SellerAgent extends Agent {
 		}
 
 		addBehaviour(new TellBehaviour());
-		addBehaviour(new AskBehaviour());
+		// addBehaviour(new AskBehaviour());
 
-		System.out.println("Agent "+getLocalName()+" waiting for CFP...");
+		System.out.println("Agent " + getLocalName() + " waiting for CFP...");
 
 		MessageTemplate template = MessageTemplate.and(
 				MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET),
@@ -44,66 +44,55 @@ public class SellerAgent extends Agent {
 		addBehaviour(new ContractNetResponder(this, template) {
 			@Override
 			protected ACLMessage handleCfp(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
+				List<FactAddressValue> agentOffers = new LinkedList<FactAddressValue>();
 				String [] content = cfp.getContent().split(":");
 				String card = content[0];
 				String products = content[1];
 				String[] productsList = products.replace("[", "").replace("]", "").split(",");
-				
-				for(int i = 0; i<productsList.length; i++){
-					System.out.println(cfp.getSender().getLocalName() + " wants to get " + productsList[i]);
-				}
-				
-				int proposal = evaluateAction();
 				String message = "";
-				// if (proposal > 2) {
-				if (true) {
-					try {
-						String assertProduct = null;
-						String assertOrder = "(order (seller-id " + getLocalName() + ") (order-id " + cfp.getSender().getLocalName() + ") (card " + card + "))";
-						clips.assertString(assertOrder);
-							
-						for(int i = 0; i<productsList.length; i++){
-							assertProduct = "(order-description (order-id " + cfp.getSender().getLocalName() + ") (product " + productsList[i] + "))";
-							clips.assertString(assertProduct);
-						}
+				
+				System.out.println("Agent" + getLocalName() + ": has a new order");
+				
+				try {
+					String assertProducts = null;
+					String assertOrder = "(order (seller-id " + getLocalName() + ") (order-id " + cfp.getSender().getLocalName() + ") (card " + card + "))";
+					clips.assertString(assertOrder);
 						
-						clips.run();
+					for(int i = 0; i<productsList.length; i++){
+						assertProducts = "(order-description (order-id " + cfp.getSender().getLocalName() + ") (product " + productsList[i] + "))";
+						clips.assertString(assertProducts);
+					}
+						
+					clips.run();
 
-						List<FactAddressValue> offers = clips.findAllFacts("offer");
-						List<FactAddressValue> agentOffers = new LinkedList<FactAddressValue>();
+					List<FactAddressValue> offers = clips.findAllFacts("offer");
 
-						for(FactAddressValue o: offers) {
-							if(cfp.getSender().getLocalName().equals(o.getSlotValue("order-id").toString())){
-								System.out.println("A "+getLocalName()+": Proposing "+ o.getSlotValue("price") + " for " + o.getSlotValue("product").toString());
-								agentOffers.add(o);
-							}
+					for(FactAddressValue o: offers) {
+						if(cfp.getSender().getLocalName().equals(o.getSlotValue("order-id").toString())){
+							agentOffers.add(o);
 						}
-
-						if(agentOffers.size() > 0){
-							for(FactAddressValue o: agentOffers) {
-								System.out.println("Ofrece" + o.getSlotValue("product") + ":" + o.getSlotValue("price") + ",");
-								message += o.getSlotValue("product") + ":" + o.getSlotValue("price") + ",";
-							}
-						}else{
-							throw new RefuseException("evaluation-failed");
-						}
-
-					} catch (Exception e) {
-						System.out.println(e);
 					}
 
-					// We provide a proposal
-					System.out.println("Agent "+getLocalName()+": Proposing "+ proposal);
-					ACLMessage propose = cfp.createReply();
-					propose.setPerformative(ACLMessage.PROPOSE);
-					propose.setContent(message);
-					return propose;
+					for(FactAddressValue o: agentOffers) {
+						message += o.getSlotValue("product") + ":" + o.getSlotValue("price") + ",";
+					}
+
+				} catch (Exception e) {
+					System.out.println(e);
 				}
-				else {
-					// We refuse to provide a proposal
+
+				if(agentOffers.size() <= 0){ // seller does not have the productos, so it refuses
 					System.out.println("Agent "+getLocalName()+": Refuse");
-					throw new RefuseException("evaluation-failed");
+					throw new RefuseException("No products found");
 				}
+
+
+				// We provide a proposal
+				System.out.println("Agent "+getLocalName()+": Proposing "+ message);
+				ACLMessage propose = cfp.createReply();
+				propose.setPerformative(ACLMessage.PROPOSE);
+				propose.setContent(message);
+				return propose;
 			}
 
 			@Override
@@ -132,19 +121,19 @@ public class SellerAgent extends Agent {
 				}
 
 				// System.out.println("Agent "+getLocalName()+": Proposal accepted");
-				System.out.println("Agent "+ getLocalName() + " Selling " + accept.getContent());
+				System.out.println("Agent "+ getLocalName() + ": is looking for " + accept.getContent());
 
-				// if (performAction()) {
-				// 	// System.out.println("Agent "+getLocalName()+": Action successfully performed");
+				if (productInStock()) {
+					System.out.println("Agent " + getLocalName() + ": Products getting ready");
 					ACLMessage inform = accept.createReply();
 					inform.setPerformative(ACLMessage.INFORM);
 					inform.setContent(message);
 					return inform;
-				// }
-				// else {
-				// 	System.out.println("Agent "+getLocalName()+": Action execution failed");
-				// 	throw new FailureException("unexpected-error");
-				// }	
+				}
+				else {
+					System.out.println("Agent "+getLocalName()+": Action execution failed");
+					throw new FailureException("unexpected-error");
+				}	
 			}
 
 			protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
@@ -154,12 +143,7 @@ public class SellerAgent extends Agent {
 		
 	}
 
-	private int evaluateAction() {
-		// Simulate an evaluation by generating a random number
-		return (int) (Math.random() * 10);
-	}
-
-	private boolean performAction() {
+	private boolean productInStock() {
 		// Simulate action execution by generating a random number
 		return (Math.random() > 0.2);
 	}
